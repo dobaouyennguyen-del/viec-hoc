@@ -2,16 +2,44 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+
+function toVietnameseError(code?: string) {
+  switch (code) {
+    case "invalid_credentials":
+      return "Email hoặc mật khẩu không đúng.";
+    case "email_not_confirmed":
+      return "Email chưa được xác nhận. Hãy kiểm tra hộp thư của bạn.";
+    case "over_request_rate_limit":
+      return "Bạn thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.";
+    default:
+      return "Đăng nhập thất bại. Vui lòng thử lại.";
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Chưa kiểm tra tài khoản: nhấn Đăng nhập là chuyển sang trang công việc
+    setError("");
+    setLoading(true);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError(toVietnameseError(error.code));
+      setLoading(false);
+      return;
+    }
+
     router.push("/tasks");
+    router.refresh();
   }
 
   return (
@@ -26,6 +54,12 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+              {error}
+            </p>
+          )}
+
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
               Email
@@ -33,6 +67,8 @@ export default function LoginPage() {
             <input
               id="email"
               type="email"
+              required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ban@example.com"
@@ -47,6 +83,8 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
+              required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -56,9 +94,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white shadow transition hover:bg-indigo-700 active:scale-[0.98]"
+            disabled={loading}
+            className="w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white shadow transition hover:bg-indigo-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Đăng nhập
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
       </div>
